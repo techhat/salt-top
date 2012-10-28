@@ -1,0 +1,177 @@
+#!/usr/bin/env python2
+
+import salt.cli.key
+import salt.client
+import salt.config
+
+import time
+import curses
+
+# Initialize the screen
+window = curses.initscr()
+curses.noecho()
+curses.cbreak()
+window.keypad(1)
+window.nodelay(1)
+
+# Set up configs
+path = '/etc/salt'
+opts = {
+    'conf_file': path,
+    'sock_dir': '/var/run/salt',
+    'pki_dir': '/etc/salt/pki',
+    'timeout': 4,
+    'mode': 'minions',
+}
+salt.config.load_config(opts, path, 'SALT_CONFIG')
+
+# Establish salt client
+client = salt.client.LocalClient(opts['conf_file'])
+key = salt.cli.key.Key(opts)
+
+def salt_top():
+    # This will force a refresh immediately, and save us from having to use
+    # the same snippet twice in the same function
+    last_refresh = int(time.time()) - opts['timeout']
+
+    while True:
+        # Get the window dimensions
+        dims = window.getmaxyx()
+
+        # Only refresh actual data every <timeout + 1> seconds
+        if ( int(time.time()) - last_refresh ) > opts['timeout']:
+            last_refresh = int(time.time())
+
+        # Get salt-wide statistics
+        lines = []
+        lines += top_stats()
+
+        # For debugging purposes - remove later
+        lines.append('Window Dimensions: {0}'.format(dims))
+        lines.append('Last refresh: {0}\n'.format(last_refresh))
+
+        if opts['mode'] == 'minions':
+            # Get list of minions and their stats
+            lines += minion_stats(0)
+        elif opts['mode'] == 'jobs':
+            # Get list of minions and their stats
+            lines += job_stats(0)
+ 
+        # Display information using curses
+        window.clear()
+        count = 0
+        for line in lines:
+            window.addstr(count, 0, line)
+            count += 1
+        window.refresh()
+
+        # Check the keyboard for input
+        inkey = ''
+        try:
+            inkey = window.getkey()
+        except:
+            pass
+        if inkey == ' ':
+            # Force the data to refresh (probably a bad idea)
+            last_refresh -= opts['timeout']
+        elif inkey == 'm':
+            opts['mode'] = 'minions'
+        elif inkey == 'j':
+            opts['mode'] = 'jobs'
+        elif inkey == 'q':
+            break
+        # Only check for input several times a second
+        curses.napms(50)
+
+def minions_up():
+    '''
+    Return a list of all of the minions that are up
+    '''
+    minions = client.cmd('*', 'test.ping', timeout=opts['timeout'])
+
+    return sorted(minions)
+ 
+def active_jobs():
+    '''
+    Return a list of active jids
+    '''
+    active = client.cmd('*', 'saltutil.running', timeout=opts['timeout'])
+    ret = []
+    for minion, data in active.items():
+        if not isinstance(data, list):
+            continue
+        for job in data:
+            if not job['jid'] in ret:
+                ret.append(job['jid'])
+
+    return ret
+
+def job_stats(sort_column):
+    '''
+    Return a list of active jobs
+    '''
+    active = client.cmd('*', 'saltutil.running', timeout=opts['timeout'])
+    jobs = []
+    for minion, data in active.items():
+        if not isinstance(data, list):
+            continue
+        for job in data:
+            if not job['jid'] in jobs:
+                jobs.append({'jid': job['jid'],
+                            'minion': minion,
+                            'fun': job['fun'],
+                            'pid': job['pid'],
+                            'args': job['arg']})
+
+    ret = []
+    for job in jobs:
+        ret.append('{0}  {1} {2} {3} {4}'.format(job['jid'],
+                                                 job['minion'],
+                                                 job['pid'],
+                                                 job['fun'],
+                                                 job['args']))
+    return sorted(ret)
+
+def top_stats():
+    '''
+    Return stats that go at the top of the screen
+    '''
+    time_now = time.strftime('%Y-%m-%d %H:%M:%S')
+    # Which minions are Accepted?
+    keys = key._keys('acc')
+    # Which minions are up?
+    minions = minions_up()
+    # Which jobs are currently active?
+    active = active_jobs()
+
+    # Would it be better to use a jinja template?
+    top = []
+    top.append('salt-top - {0}'.format(time_now))
+    top.append('Minions Alive: {0}/{1}, Active Jobs: {2}'.format(len(minions), len(keys), len(active)))
+
+    # Trim lines according to screen dimensions
+    dims = window.getmaxyx()
+    ret = []
+    count = 0
+    for line in top:
+        if count < dims[0]:
+            ret.append('{0}\n'.format(line[:dims[1]]))
+            count += 1
+
+    return ret
+
+def minion_stats(sort_column):
+    '''
+    Return list of minions, sorted by a specific column
+    '''
+    return []
+
+salt_top()
+
+# Clean up the window
+curses.nocbreak()
+window.keypad(0)
+window.nodelay(0)
+curses.echo()
+curses.endwin()
+
