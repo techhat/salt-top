@@ -22,8 +22,12 @@ opts = {
     'pki_dir': '/etc/salt/pki',
     'timeout': 4,
     'mode': 'minions',
+    'top_conf': '/etc/salt/top'
 }
 salt.config.load_config(opts, path, 'SALT_CONFIG')
+
+columns = {}
+salt.config.load_config(columns, opts['top_conf'], 'SALT_TOP_CONFIG')
 
 # Establish salt client
 client = salt.client.LocalClient(opts['conf_file'])
@@ -125,12 +129,16 @@ def job_stats(sort_column):
 
     ret = []
     for job in jobs:
-        ret.append('{0}  {1} {2} {3} {4}'.format(job['jid'],
-                                                 job['minion'],
-                                                 job['pid'],
-                                                 job['fun'],
-                                                 job['args']))
+        frow = ''
+        for field in ('jid', 'minion', 'pid', 'fun', 'args'):
+            size = int(columns['jobs'][field]['size'])
+            ffield = '{field:<{size}}'.format(size=size, field=job[field])
+            frow += ffield
+        ret.append(frow)
     return sorted(ret)
+
+def draw_columns(columns):
+    pass
 
 def top_stats():
     '''
@@ -175,3 +183,7 @@ window.nodelay(0)
 curses.echo()
 curses.endwin()
 
+import pprint
+pprint.pprint(columns)
+import sys
+sys.exit(0)
