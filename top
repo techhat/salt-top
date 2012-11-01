@@ -2,6 +2,13 @@
 
 minion: salt
 
+jobs_order:
+    - jid
+    - minion
+    - pid
+    - fun
+    - args
+
 jobs:
     jid:
         size: 23

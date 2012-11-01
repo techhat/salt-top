@@ -54,12 +54,15 @@ def salt_top():
         lines.append('Window Dimensions: {0}'.format(dims))
         lines.append('Last refresh: {0}\n'.format(last_refresh))
 
-        if opts['mode'] == 'minions':
+        if opts['mode'] == 'report':
             # Get list of minions and their stats
-            lines += minion_stats(0)
+            lines += report_stats(0)
         elif opts['mode'] == 'jobs':
-            # Get list of minions and their stats
+            # Get list of jobs and their stats
             lines += job_stats(0)
+        elif opts['mode'] == 'top':
+            # Get traditional top-style report
+            lines += top_report(0)
  
         # Display information using curses
         window.clear()
@@ -78,10 +81,12 @@ def salt_top():
         if inkey == ' ':
             # Force the data to refresh (probably a bad idea)
             last_refresh -= opts['timeout']
-        elif inkey == 'm':
-            opts['mode'] = 'minions'
+        elif inkey == 'r':
+            opts['mode'] = 'report'
         elif inkey == 'j':
             opts['mode'] = 'jobs'
+        elif inkey == 't':
+            opts['mode'] = 'top'
         elif inkey == 'q':
             break
         # Only check for input several times a second
@@ -128,14 +133,20 @@ def job_stats(sort_column):
                             'args': job['arg']})
 
     ret = []
+    frow = ''
+    for field in columns['jobs_order']:
+        size = int(columns['jobs'][field]['size'])
+        name = columns['jobs'][field]['name']
+        frow += '{field:<{size}}'.format(size=size, field=name)
+    ret.append(frow)
     for job in jobs:
         frow = ''
-        for field in ('jid', 'minion', 'pid', 'fun', 'args'):
+        for field in columns['jobs_order']:
             size = int(columns['jobs'][field]['size'])
             ffield = '{field:<{size}}'.format(size=size, field=job[field])
             frow += ffield
         ret.append(frow)
-    return sorted(ret)
+    return ret
 
 def draw_columns(columns):
     pass
@@ -154,7 +165,7 @@ def top_stats():
 
     # Would it be better to use a jinja template?
     top = []
-    top.append('salt-top - {0}'.format(time_now))
+    top.append('salt-top - {0} - {1}'.format(opts['mode'], time_now))
     top.append('Minions Alive: {0}/{1}, Active Jobs: {2}'.format(len(minions), len(keys), len(active)))
 
     # Trim lines according to screen dimensions
@@ -168,9 +179,15 @@ def top_stats():
 
     return ret
 
-def minion_stats(sort_column):
+def report_stats(sort_column):
     '''
     Return list of minions, sorted by a specific column
+    '''
+    return []
+
+def top_report(sort_column):
+    '''
+    Return traditional top-style report for one minion
     '''
     return []
 

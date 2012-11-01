@@ -10,8 +10,9 @@ supported; whether they work is a different story:
 .. code-block::
 
     <space> - Refresh the data
-    m       - Display minion-based report
-    j       - Display job-based report
+    r       - Display multi-minion report
+    j       - Display job info
+    t       - Display top-style report
     q       - Quit
 
 The short-term plan is to allow users to write their own minion-based reports,
