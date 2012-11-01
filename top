@@ -1,0 +1,21 @@
+# This file normally should be at /etc/salt/top
+
+minion: salt
+
+jobs:
+    jid:
+        size: 23
+        name: JID
+    minion:
+        size: 15
+        name: Minion
+    pid:
+        size: 7
+        name: PID
+    fun:
+        size: 15
+        name: Function
+    args:
+        size: 30
+        name: Arguments
+
