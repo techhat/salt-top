@@ -7,7 +7,7 @@ Salt to be installed, is designed to run on the salt-master.
 At the moment, it is very much in development mode. The following keys are
 supported; whether they work is a different story:
 
-code ::
+.. code-block::
 
     <space> - Refresh the data
     m       - Display minion-based report
