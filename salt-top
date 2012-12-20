@@ -4,15 +4,9 @@ import salt.key
 import salt.client
 import salt.config
 
+import sys
 import time
 import curses
-
-# Initialize the screen
-window = curses.initscr()
-curses.noecho()
-curses.cbreak()
-window.keypad(1)
-window.nodelay(1)
 
 # Set up configs
 path = '/etc/salt'
@@ -28,6 +22,20 @@ salt.config.load_config(opts, path, 'SALT_CONFIG')
 
 columns = {}
 salt.config.load_config(columns, opts['top_conf'], 'SALT_TOP_CONFIG')
+if not columns:
+    sys.stderr.write(
+        "configuration not found in {0} or {1} environment variable\n".format(
+            opts['top_conf'], 'SALT_CONFIG'
+        )
+    )
+    sys.exit(1)
+
+# Initialize the screen
+window = curses.initscr()
+curses.noecho()
+curses.cbreak()
+window.keypad(1)
+window.nodelay(1)
 
 # Establish salt client
 client = salt.client.LocalClient(opts['conf_file'])
@@ -202,5 +210,4 @@ curses.endwin()
 
 import pprint
 pprint.pprint(columns)
-import sys
 sys.exit(0)
