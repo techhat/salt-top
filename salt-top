@@ -1,6 +1,6 @@
 #!/usr/bin/env python2
 
-import salt.cli.key
+import salt.key
 import salt.client
 import salt.config
 
@@ -31,7 +31,7 @@ salt.config.load_config(columns, opts['top_conf'], 'SALT_TOP_CONFIG')
 
 # Establish salt client
 client = salt.client.LocalClient(opts['conf_file'])
-key = salt.cli.key.Key(opts)
+key = salt.key.Key(opts)
 
 def salt_top():
     # This will force a refresh immediately, and save us from having to use
@@ -157,7 +157,7 @@ def top_stats():
     '''
     time_now = time.strftime('%Y-%m-%d %H:%M:%S')
     # Which minions are Accepted?
-    keys = key._keys('acc')
+    keys = key.list_keys()['minions']
     # Which minions are up?
     minions = minions_up()
     # Which jobs are currently active?
