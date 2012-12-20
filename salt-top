@@ -41,15 +41,16 @@ window.nodelay(1)
 client = salt.client.LocalClient(opts['conf_file'])
 key = salt.key.Key(opts)
 
-def salt_top():
-    # This will force a refresh immediately, and save us from having to use
-    # the same snippet twice in the same function
-    last_refresh = int(time.time()) - opts['timeout']
+# This will force a refresh immediately, and save us from having to use the
+# same snippet twice in the same function
+last_refresh = int(time.time()) - opts['timeout']
 
+def salt_top():
     while True:
         # Get the window dimensions
         dims = window.getmaxyx()
 
+        global last_refresh
         # Only refresh actual data every <timeout + 1> seconds
         if ( int(time.time()) - last_refresh ) > opts['timeout']:
             last_refresh = int(time.time())
@@ -60,7 +61,6 @@ def salt_top():
 
         # For debugging purposes - remove later
         lines.append('Window Dimensions: {0}'.format(dims))
-        lines.append('Last refresh: {0}\n'.format(last_refresh))
 
         if opts['mode'] == 'report':
             # Get list of minions and their stats
@@ -163,7 +163,7 @@ def top_stats():
     '''
     Return stats that go at the top of the screen
     '''
-    time_now = time.strftime('%Y-%m-%d %H:%M:%S')
+    time_now = int(time.time())
     # Which minions are Accepted?
     keys = key.list_keys()['minions']
     # Which minions are up?
@@ -173,8 +173,17 @@ def top_stats():
 
     # Would it be better to use a jinja template?
     top = []
-    top.append('salt-top - {0} - {1}'.format(opts['mode'], time_now))
-    top.append('Minions Alive: {0}/{1}, Active Jobs: {2}'.format(len(minions), len(keys), len(active)))
+    top.append('salt-top - {0} - {1}'.format(
+        opts['mode'],
+        time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time_now))
+        ))
+    top.append('Minions Alive: {0}/{1}, '
+               'Active Jobs: {2}, '
+               'Last Refresh: {3} secs ago'.format(
+                   len(minions), len(keys),
+                   len(active),
+                   time_now - last_refresh
+                ))
 
     # Trim lines according to screen dimensions
     dims = window.getmaxyx()
