@@ -1,18 +1,12 @@
 #!/usr/bin/env python2
 
-import salt.cli.key
+import salt.key
 import salt.client
 import salt.config
 
+import sys
 import time
 import curses
-
-# Initialize the screen
-window = curses.initscr()
-curses.noecho()
-curses.cbreak()
-window.keypad(1)
-window.nodelay(1)
 
 # Set up configs
 path = '/etc/salt'
@@ -28,20 +22,35 @@ salt.config.load_config(opts, path, 'SALT_CONFIG')
 
 columns = {}
 salt.config.load_config(columns, opts['top_conf'], 'SALT_TOP_CONFIG')
+if not columns:
+    sys.stderr.write(
+        "configuration not found in {0} or {1} environment variable\n".format(
+            opts['top_conf'], 'SALT_CONFIG'
+        )
+    )
+    sys.exit(1)
+
+# Initialize the screen
+window = curses.initscr()
+curses.noecho()
+curses.cbreak()
+window.keypad(1)
+window.nodelay(1)
 
 # Establish salt client
 client = salt.client.LocalClient(opts['conf_file'])
-key = salt.cli.key.Key(opts)
+key = salt.key.Key(opts)
+
+# This will force a refresh immediately, and save us from having to use the
+# same snippet twice in the same function
+last_refresh = int(time.time()) - opts['timeout']
 
 def salt_top():
-    # This will force a refresh immediately, and save us from having to use
-    # the same snippet twice in the same function
-    last_refresh = int(time.time()) - opts['timeout']
-
     while True:
         # Get the window dimensions
         dims = window.getmaxyx()
 
+        global last_refresh
         # Only refresh actual data every <timeout + 1> seconds
         if ( int(time.time()) - last_refresh ) > opts['timeout']:
             last_refresh = int(time.time())
@@ -52,7 +61,6 @@ def salt_top():
 
         # For debugging purposes - remove later
         lines.append('Window Dimensions: {0}'.format(dims))
-        lines.append('Last refresh: {0}\n'.format(last_refresh))
 
         if opts['mode'] == 'report':
             # Get list of minions and their stats
@@ -155,9 +163,9 @@ def top_stats():
     '''
     Return stats that go at the top of the screen
     '''
-    time_now = time.strftime('%Y-%m-%d %H:%M:%S')
+    time_now = int(time.time())
     # Which minions are Accepted?
-    keys = key._keys('acc')
+    keys = key.list_keys()['minions']
     # Which minions are up?
     minions = minions_up()
     # Which jobs are currently active?
@@ -165,8 +173,17 @@ def top_stats():
 
     # Would it be better to use a jinja template?
     top = []
-    top.append('salt-top - {0} - {1}'.format(opts['mode'], time_now))
-    top.append('Minions Alive: {0}/{1}, Active Jobs: {2}'.format(len(minions), len(keys), len(active)))
+    top.append('salt-top - {0} - {1}'.format(
+        opts['mode'],
+        time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time_now))
+        ))
+    top.append('Minions Alive: {0}/{1}, '
+               'Active Jobs: {2}, '
+               'Last Refresh: {3} secs ago'.format(
+                   len(minions), len(keys),
+                   len(active),
+                   time_now - last_refresh
+                ))
 
     # Trim lines according to screen dimensions
     dims = window.getmaxyx()
@@ -202,5 +219,4 @@ curses.endwin()
 
 import pprint
 pprint.pprint(columns)
-import sys
 sys.exit(0)
