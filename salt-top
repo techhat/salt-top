@@ -9,26 +9,30 @@ import time
 import curses
 
 # Set up configs
-path = '/etc/salt'
-opts = {
-    'conf_file': path,
+PATH = '/etc/salt'
+OPTS = {
+    'conf_file': PATH,
     'sock_dir': '/var/run/salt',
-    'pki_dir': '/etc/salt/pki',
+    'pki_dir': '/etc/salt/pki/master',
     'timeout': 4,
     'mode': 'minions',
     'top_conf': '/etc/salt/top'
 }
-salt.config.load_config(opts, path, 'SALT_CONFIG')
+SALT_OPTS = salt.config.load_config(PATH, 'SALT_CONFIG')
 
 columns = {}
-salt.config.load_config(columns, opts['top_conf'], 'SALT_TOP_CONFIG')
-if not columns:
+SALT_TOP_OPTS = salt.config.load_config(OPTS['top_conf'], 'SALT_TOP_CONFIG')
+
+if not SALT_TOP_OPTS:
     sys.stderr.write(
         "configuration not found in {0} or {1} environment variable\n".format(
-            opts['top_conf'], 'SALT_CONFIG'
+            OPTS['top_conf'], 'SALT_CONFIG'
         )
     )
     sys.exit(1)
+
+OPTS.update(SALT_OPTS)
+OPTS.update(SALT_TOP_OPTS)
 
 # Initialize the screen
 window = curses.initscr()
@@ -38,12 +42,12 @@ window.keypad(1)
 window.nodelay(1)
 
 # Establish salt client
-client = salt.client.LocalClient(opts['conf_file'])
-key = salt.key.Key(opts)
+client = salt.client.LocalClient(OPTS['conf_file'])
+key = salt.key.Key(OPTS)
 
 # This will force a refresh immediately, and save us from having to use the
 # same snippet twice in the same function
-last_refresh = int(time.time()) - opts['timeout']
+last_refresh = int(time.time()) - OPTS['timeout']
 
 def salt_top():
     while True:
@@ -52,7 +56,7 @@ def salt_top():
 
         global last_refresh
         # Only refresh actual data every <timeout + 1> seconds
-        if ( int(time.time()) - last_refresh ) > opts['timeout']:
+        if ( int(time.time()) - last_refresh ) > OPTS['timeout']:
             last_refresh = int(time.time())
 
         # Get salt-wide statistics
@@ -62,13 +66,13 @@ def salt_top():
         # For debugging purposes - remove later
         lines.append('Window Dimensions: {0}'.format(dims))
 
-        if opts['mode'] == 'report':
+        if OPTS['mode'] == 'report':
             # Get list of minions and their stats
             lines += report_stats(0)
-        elif opts['mode'] == 'jobs':
+        elif OPTS['mode'] == 'jobs':
             # Get list of jobs and their stats
             lines += job_stats(0)
-        elif opts['mode'] == 'top':
+        elif OPTS['mode'] == 'top':
             # Get traditional top-style report
             lines += top_report(0)
  
@@ -88,13 +92,13 @@ def salt_top():
             pass
         if inkey == ' ':
             # Force the data to refresh (probably a bad idea)
-            last_refresh -= opts['timeout']
+            last_refresh -= OPTS['timeout']
         elif inkey == 'r':
-            opts['mode'] = 'report'
+            OPTS['mode'] = 'report'
         elif inkey == 'j':
-            opts['mode'] = 'jobs'
+            OPTS['mode'] = 'jobs'
         elif inkey == 't':
-            opts['mode'] = 'top'
+            OPTS['mode'] = 'top'
         elif inkey == 'q':
             break
         # Only check for input several times a second
@@ -104,7 +108,7 @@ def minions_up():
     '''
     Return a list of all of the minions that are up
     '''
-    minions = client.cmd('*', 'test.ping', timeout=opts['timeout'])
+    minions = client.cmd('*', 'test.ping', timeout=OPTS['timeout'])
 
     return sorted(minions)
  
@@ -112,7 +116,7 @@ def active_jobs():
     '''
     Return a list of active jids
     '''
-    active = client.cmd('*', 'saltutil.running', timeout=opts['timeout'])
+    active = client.cmd('*', 'saltutil.running', timeout=OPTS['timeout'])
     ret = []
     for minion, data in active.items():
         if not isinstance(data, list):
@@ -127,7 +131,7 @@ def job_stats(sort_column):
     '''
     Return a list of active jobs
     '''
-    active = client.cmd('*', 'saltutil.running', timeout=opts['timeout'])
+    active = client.cmd('*', 'saltutil.running', timeout=OPTS['timeout'])
     jobs = []
     for minion, data in active.items():
         if not isinstance(data, list):
@@ -174,7 +178,7 @@ def top_stats():
     # Would it be better to use a jinja template?
     top = []
     top.append('salt-top - {0} - {1}'.format(
-        opts['mode'],
+        OPTS['mode'],
         time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time_now))
         ))
     top.append('Minions Alive: {0}/{1}, '
