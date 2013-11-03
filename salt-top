@@ -20,7 +20,10 @@ OPTS = {
 }
 SALT_OPTS = salt.config.load_config(PATH, 'SALT_CONFIG')
 
-columns = {}
+columns = {
+    'jobs_order': [],
+    'jobs': {},
+}
 SALT_TOP_OPTS = salt.config.load_config(OPTS['top_conf'], 'SALT_TOP_CONFIG')
 
 if not SALT_TOP_OPTS:
